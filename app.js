@@ -8,6 +8,7 @@ const App = {
   nameA: 'Team A',
   nameB: 'Team B',
   soundEnabled: true,
+  applauseEnabled: true,
 };
 
 // ============================================================
@@ -35,6 +36,12 @@ function setSound(enabled) {
   App.soundEnabled = enabled;
   document.getElementById('btn-sound-on').classList.toggle('active', enabled);
   document.getElementById('btn-sound-off').classList.toggle('active', !enabled);
+}
+
+function setApplause(enabled) {
+  App.applauseEnabled = enabled;
+  document.getElementById('btn-applause-on').classList.toggle('active', enabled);
+  document.getElementById('btn-applause-off').classList.toggle('active', !enabled);
 }
 
 async function startCamera() {
@@ -336,6 +343,7 @@ const ScoreModule = {
     UIModule.updateScore();
     UIModule.flashPoint(team);
     AudioModule.playPointBeep();
+    AudioModule.playApplause();
 
     if (this.isSetOver()) {
       setTimeout(() => this.endSet(), 600);
@@ -502,6 +510,55 @@ const AudioModule = {
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
     osc.start(this.ctx.currentTime);
     osc.stop(this.ctx.currentTime + 0.4);
+  },
+
+  playApplause() {
+    if (!this.ctx || !App.applauseEnabled) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+    const startDelay = App.soundEnabled ? 0.45 : 0; // after beep if beep is on
+    const duration = 2.0;
+    const sampleRate = this.ctx.sampleRate;
+    const bufferSize = Math.floor(sampleRate * duration);
+    const buffer = this.ctx.createBuffer(2, bufferSize, sampleRate); // stereo
+
+    // Generate crowd applause: many staggered clap bursts
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buffer.getChannelData(ch);
+      const numClaps = 40 + Math.floor(Math.random() * 20);
+      for (let i = 0; i < numClaps; i++) {
+        // Spread claps: denser at start, trailing off
+        const t = (i / numClaps) * duration * 0.85;
+        const clapStart = Math.floor(t * sampleRate);
+        const clapLen = Math.floor((0.03 + Math.random() * 0.04) * sampleRate);
+        for (let j = 0; j < clapLen && clapStart + j < bufferSize; j++) {
+          const env = Math.exp(-j / (clapLen * 0.25));
+          data[clapStart + j] += (Math.random() * 2 - 1) * env * (0.4 + Math.random() * 0.3);
+        }
+      }
+    }
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+
+    // Shape: bandpass to get that "clap" frequency range
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 1100;
+    bp.Q.value = 0.4;
+
+    // Master gain with fade-out
+    const gain = this.ctx.createGain();
+    const t0 = this.ctx.currentTime + startDelay;
+    gain.gain.setValueAtTime(0.55, t0);
+    gain.gain.setValueAtTime(0.55, t0 + duration * 0.5);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+
+    source.connect(bp);
+    bp.connect(gain);
+    gain.connect(this.ctx.destination);
+    source.start(t0);
+    source.stop(t0 + duration + 0.1);
   },
 
   playSetWinBeep() {
@@ -814,6 +871,7 @@ const RallyFSM = {
     if (side) {
       ScoreModule.awardPoint(side);
       AudioModule.playPointBeep();
+      AudioModule.playApplause();
     }
 
     setTimeout(() => UIModule.setRallyState('idle'), 800);
