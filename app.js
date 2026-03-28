@@ -798,7 +798,7 @@ const DetectionModule = {
 
 const FLIGHT_VEL_THRESHOLD = 5; // px/frame at analysis resolution, min speed to count as "in flight"
 const MIN_IN_PLAY_FRAMES = 2;
-const COOLDOWN_MS = 1500;
+const COOLDOWN_MS = 5000;
 
 const RallyFSM = {
   state: 'IDLE',
