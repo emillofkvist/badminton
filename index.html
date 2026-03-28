@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Badminton</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      height: 100dvh;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .screen.active { display: flex; }
+
+    /* ── SETUP SCREEN ── */
+    #screen-setup { gap: 20px; }
+
+    .setup-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .setup-subtitle {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .field-group {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #666;
+      margin-bottom: 2px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+    }
+    input[type="text"]:focus { border-color: #444; }
+
+    .type-toggle {
+      display: flex;
+      background: #1a1a1a;
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .type-btn {
+      flex: 1;
+      padding: 9px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #666;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .type-btn.active {
+      background: #2a2a2a;
+      color: #fff;
+    }
+
+    .btn-primary {
+      width: 100%;
+      max-width: 320px;
+      padding: 16px;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: -0.2px;
+    }
+    .btn-primary:active { opacity: 0.85; }
+
+    /* ── CALIBRATION SCREEN ── */
+    #screen-calibration {
+      padding: 0;
+      justify-content: flex-start;
+    }
+
+    #calibration-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    #calibration-ui {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 20px 24px 36px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.9));
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    #calibration-instruction {
+      font-size: 14px;
+      color: #ccc;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    #calibration-dots {
+      display: flex;
+      gap: 10px;
+    }
+    .dot-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.2s;
+    }
+    .dot-indicator.done { background: #4caf50; }
+    .dot-indicator.active { background: #fff; }
+
+    #calibration-buttons {
+      display: flex;
+      gap: 10px;
+      pointer-events: all;
+    }
+    .btn-secondary {
+      padding: 12px 24px;
+      border: 1px solid #444;
+      border-radius: 10px;
+      background: transparent;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-confirm {
+      padding: 12px 28px;
+      border: none;
+      border-radius: 10px;
+      background: #4caf50;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    #calibration-confirm-row {
+      display: none;
+      gap: 10px;
+      pointer-events: all;
+    }
+
+    /* Hidden video for camera feed */
+    #camera-video {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* Calibration uses the video visibly */
+    #screen-calibration.active #camera-video {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 1;
+    }
+
+    /* ── MATCH SCREEN ── */
+    #screen-match {
+      background: #0a0a0a;
+      padding: 0;
+    }
+
+    .match-layout {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .match-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 10px;
+      flex-shrink: 0;
+    }
+
+    .match-set-info {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #555;
+    }
+
+    .set-scores {
+      display: flex;
+      gap: 4px;
+    }
+    .set-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1.5px solid #333;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+    }
+    .set-dot.won-a { background: #4caf50; border-color: #4caf50; color: #fff; }
+    .set-dot.won-b { background: #ef5350; border-color: #ef5350; color: #fff; }
+
+    .btn-pause {
+      padding: 6px 14px;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      background: transparent;
+      color: #555;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    /* Main score area — split 50/50 */
+    .score-area {
+      flex: 1;
+      display: flex;
+      position: relative;
+    }
+
+    .score-half {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+      position: relative;
+      /* Touch feedback */
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .score-half::after {
+      content: '';
+      position: absolute;
+      top: 15%;
+      bottom: 15%;
+      right: 0;
+      width: 1px;
+      background: #1e1e1e;
+    }
+    .score-half.right::after { display: none; }
+
+    .score-half.flash-point {
+      animation: flashPoint 0.5s ease-out;
+    }
+    @keyframes flashPoint {
+      0%   { background: rgba(76,175,80,0.25); }
+      100% { background: transparent; }
+    }
+
+    .player-name {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #555;
+      text-align: center;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .score-number {
+      font-size: clamp(80px, 22vw, 130px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -4px;
+      color: #fff;
+      transition: color 0.2s;
+      font-variant-numeric: tabular-nums;
+    }
+    .score-number.leading { color: #4caf50; }
+
+    .manual-hint {
+      font-size: 10px;
+      color: #2a2a2a;
+      text-align: center;
+    }
+
+    /* Rally indicator */
+    .rally-indicator {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .rally-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2a2a2a;
+      transition: background 0.1s;
+    }
+    .rally-dot.in-play {
+      background: #4caf50;
+      box-shadow: 0 0 8px #4caf50;
+      animation: pulse 0.8s infinite;
+    }
+    .rally-dot.landed {
+      background: #ff9800;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .rally-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #333;
+    }
+
+    /* ── SET OVER OVERLAY ── */
+    #screen-setover {
+      background: rgba(0,0,0,0.92);
+      gap: 16px;
+      z-index: 10;
+    }
+    .setover-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #555;
+    }
+    .setover-winner {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .setover-score {
+      font-size: 20px;
+      color: #888;
+    }
+
+    /* ── GAME OVER SCREEN ── */
+    #screen-gameover { gap: 20px; }
+
+    .gameover-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #555;
+    }
+    .gameover-winner {
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+    .gameover-sets {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      max-width: 280px;
+    }
+    .gameover-set-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      color: #666;
+      padding: 8px 14px;
+      background: #111;
+      border-radius: 8px;
+    }
+    .gameover-set-row .winner-score { color: #fff; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden video element (camera feed, always hidden during match) -->
+  <video id="camera-video" autoplay playsinline muted></video>
+
+  <!-- Hidden analysis canvas -->
+  <canvas id="analysis-canvas" style="display:none"></canvas>
+
+  <!-- ── SETUP ── -->
+  <div id="screen-setup" class="screen active">
+    <div class="setup-title">🏸 Badminton</div>
+    <p class="setup-subtitle">Montera telefonen så kameran filmar hela planen</p>
+
+    <div class="field-group">
+      <div>
+        <div class="field-label">Spelare 1 (vänster)</div>
+        <input type="text" id="name-a" value="Team A" autocomplete="off">
+      </div>
+      <div>
+        <div class="field-label">Spelare 2 (höger)</div>
+        <input type="text" id="name-b" value="Team B" autocomplete="off">
+      </div>
+      <div>
+        <div class="field-label">Speltyp</div>
+        <div class="type-toggle">
+          <button class="type-btn active" id="btn-singles" onclick="setType('singles')">Singel</button>
+          <button class="type-btn" id="btn-doubles" onclick="setType('doubles')">Dubbel</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="startCamera()">Starta kamera &rarr;</button>
+  </div>
+
+  <!-- ── CALIBRATION ── -->
+  <div id="screen-calibration" class="screen">
+    <canvas id="calibration-canvas"></canvas>
+
+    <div id="calibration-ui">
+      <div id="calibration-instruction">Tryck på planens 4 hörn i ordning:<br>vänster bak → höger bak → höger fram → vänster fram</div>
+      <div id="calibration-dots">
+        <div class="dot-indicator active" id="dot-0"></div>
+        <div class="dot-indicator" id="dot-1"></div>
+        <div class="dot-indicator" id="dot-2"></div>
+        <div class="dot-indicator" id="dot-3"></div>
+      </div>
+      <div id="calibration-confirm-row">
+        <button class="btn-secondary" onclick="redoCalibration()">Gör om</button>
+        <button class="btn-confirm" onclick="confirmCalibration()">Bekräfta ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MATCH ── -->
+  <div id="screen-match" class="screen">
+    <div class="match-layout">
+      <div class="match-header">
+        <div class="match-set-info" id="match-set-label">SET 1</div>
+        <div class="set-scores" id="set-scores"></div>
+        <button class="btn-pause" onclick="pauseMatch()">Paus</button>
+      </div>
+
+      <div class="score-area">
+        <div class="score-half left" id="half-a"
+             ontouchstart="startLongPress('a')" ontouchend="endLongPress()"
+             ondblclick="undoPoint()">
+          <div class="player-name" id="name-display-a">Team A</div>
+          <div class="score-number" id="score-a">0</div>
+          <div class="manual-hint">Håll inne = +1</div>
+        </div>
+        <div class="score-half right" id="half-b"
+             ontouchstart="startLongPress('b')" ontouchend="endLongPress()"
+             ondblclick="undoPoint()">
+          <div class="player-name" id="name-display-b">Team B</div>
+          <div class="score-number" id="score-b">0</div>
+          <div class="manual-hint">Håll inne = +1</div>
+        </div>
+
+        <div class="rally-indicator">
+          <div class="rally-dot" id="rally-dot"></div>
+          <div class="rally-label" id="rally-label">Väntar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SET OVER ── -->
+  <div id="screen-setover" class="screen">
+    <div class="setover-title">Set slut</div>
+    <div class="setover-winner" id="setover-winner"></div>
+    <div class="setover-score" id="setover-score"></div>
+  </div>
+
+  <!-- ── GAME OVER ── -->
+  <div id="screen-gameover" class="screen">
+    <div class="gameover-label">Match slut</div>
+    <div class="gameover-winner" id="gameover-winner"></div>
+    <div class="gameover-sets" id="gameover-sets"></div>
+    <button class="btn-primary" onclick="newGame()">Ny match</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
