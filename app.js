@@ -516,49 +516,67 @@ const AudioModule = {
     if (!this.ctx || !App.applauseEnabled) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
 
-    const startDelay = App.soundEnabled ? 0.45 : 0; // after beep if beep is on
-    const duration = 2.0;
-    const sampleRate = this.ctx.sampleRate;
-    const bufferSize = Math.floor(sampleRate * duration);
-    const buffer = this.ctx.createBuffer(2, bufferSize, sampleRate); // stereo
+    const t0 = this.ctx.currentTime + (App.soundEnabled ? 0.45 : 0);
+    const totalDur = 2.8;
+    const sr = this.ctx.sampleRate;
+    const buf = this.ctx.createBuffer(2, Math.floor(sr * totalDur), sr);
 
-    // Generate crowd applause: many staggered clap bursts
-    for (let ch = 0; ch < 2; ch++) {
-      const data = buffer.getChannelData(ch);
-      const numClaps = 40 + Math.floor(Math.random() * 20);
-      for (let i = 0; i < numClaps; i++) {
-        // Spread claps: denser at start, trailing off
-        const t = (i / numClaps) * duration * 0.85;
-        const clapStart = Math.floor(t * sampleRate);
-        const clapLen = Math.floor((0.03 + Math.random() * 0.04) * sampleRate);
-        for (let j = 0; j < clapLen && clapStart + j < bufferSize; j++) {
-          const env = Math.exp(-j / (clapLen * 0.25));
-          data[clapStart + j] += (Math.random() * 2 - 1) * env * (0.4 + Math.random() * 0.3);
+    // Simulate 35 people each clapping at their own rate and phase.
+    // Each clap = very fast attack + short noise decay (realistic hand-clap shape).
+    for (let person = 0; person < 35; person++) {
+      const rate = 2.8 + Math.random() * 1.6;     // 2.8–4.4 claps/sec
+      const phase = Math.random();                  // random start offset
+      const vol = 0.06 + Math.random() * 0.06;     // slight volume variation per person
+
+      for (let ch = 0; ch < 2; ch++) {
+        const data = buf.getChannelData(ch);
+        // Tiny L/R delay per person for stereo width
+        const chOffset = ch === 0 ? 0 : Math.floor(Math.random() * 0.004 * sr);
+
+        let t = phase / rate;
+        while (t < totalDur) {
+          const start = Math.floor(t * sr) + chOffset;
+          const clapLen = Math.floor((0.018 + Math.random() * 0.030) * sr);
+          for (let j = 0; j < clapLen; j++) {
+            const idx = start + j;
+            if (idx >= buf.length) break;
+            // Two-stage envelope: sharp transient crack + short body decay
+            const crack = Math.exp(-j / (sr * 0.003));
+            const body  = Math.exp(-j / (sr * 0.018));
+            data[idx] += (Math.random() * 2 - 1) * (crack * 0.6 + body * 0.4) * vol;
+          }
+          // Next clap with slight human timing jitter
+          t += 1 / rate + (Math.random() - 0.5) * 0.06;
         }
       }
     }
 
     const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
+    source.buffer = buf;
 
-    // Shape: bandpass to get that "clap" frequency range
-    const bp = this.ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 1100;
-    bp.Q.value = 0.4;
+    // Highpass: cut low rumble below 500 Hz
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 500;
 
-    // Master gain with fade-out
+    // High shelf: boost crisp presence in 2.5 kHz+ range
+    const hs = this.ctx.createBiquadFilter();
+    hs.type = 'highshelf';
+    hs.frequency.value = 2500;
+    hs.gain.value = 7;
+
+    // Gain envelope: strong start, fade out last 40%
     const gain = this.ctx.createGain();
-    const t0 = this.ctx.currentTime + startDelay;
-    gain.gain.setValueAtTime(0.55, t0);
-    gain.gain.setValueAtTime(0.55, t0 + duration * 0.5);
-    gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    gain.gain.setValueAtTime(0.9, t0);
+    gain.gain.setValueAtTime(0.9, t0 + totalDur * 0.55);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + totalDur);
 
-    source.connect(bp);
-    bp.connect(gain);
+    source.connect(hp);
+    hp.connect(hs);
+    hs.connect(gain);
     gain.connect(this.ctx.destination);
     source.start(t0);
-    source.stop(t0 + duration + 0.1);
+    source.stop(t0 + totalDur + 0.1);
   },
 
   playSetWinBeep() {
