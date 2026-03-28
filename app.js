@@ -7,6 +7,7 @@ const App = {
   gameType: 'singles',
   nameA: 'Team A',
   nameB: 'Team B',
+  soundEnabled: true,
 };
 
 // ============================================================
@@ -30,6 +31,12 @@ function setType(type) {
   document.getElementById('btn-doubles').classList.toggle('active', type === 'doubles');
 }
 
+function setSound(enabled) {
+  App.soundEnabled = enabled;
+  document.getElementById('btn-sound-on').classList.toggle('active', enabled);
+  document.getElementById('btn-sound-off').classList.toggle('active', !enabled);
+}
+
 async function startCamera() {
   App.nameA = document.getElementById('name-a').value.trim() || 'Team A';
   App.nameB = document.getElementById('name-b').value.trim() || 'Team B';
@@ -40,7 +47,7 @@ async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: { ideal: 'environment' },
+        facingMode: { ideal: 'user' },
         width: { ideal: 1280 },
         height: { ideal: 720 },
         frameRate: { ideal: 30, min: 15 },
@@ -482,7 +489,7 @@ const AudioModule = {
   },
 
   playPointBeep() {
-    if (!this.ctx) return;
+    if (!this.ctx || !App.soundEnabled) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -498,7 +505,7 @@ const AudioModule = {
   },
 
   playSetWinBeep() {
-    if (!this.ctx) return;
+    if (!this.ctx || !App.soundEnabled) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
     [0, 0.18, 0.36].forEach((delay, i) => {
       const osc = this.ctx.createOscillator();
