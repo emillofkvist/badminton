@@ -18,13 +18,6 @@ function showScreen(id) {
   document.getElementById('screen-' + id).classList.add('active');
   App.screen = id;
 
-  // Show video only during calibration (it's not inside the screen div, so use JS)
-  const video = document.getElementById('camera-video');
-  if (id === 'calibration') {
-    video.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;z-index:0;pointer-events:none;';
-  } else {
-    video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
-  }
 }
 
 // ============================================================
@@ -72,6 +65,7 @@ const CalibrationModule = {
   corners: [],
   canvas: null,
   ctx: null,
+  rafId: null,
   STORAGE_KEY: 'badminton_court_corners',
 
   init() {
@@ -84,9 +78,11 @@ const CalibrationModule = {
     this.canvas.addEventListener('touchend', (e) => {
       e.preventDefault();
       const t = e.changedTouches[0];
-      const rect = this.canvas.getBoundingClientRect();
-      this.handleTap({ clientX: t.clientX - rect.left, clientY: t.clientY - rect.top, _fromTouch: true });
+      this.handleTap({ clientX: t.clientX, clientY: t.clientY });
     });
+
+    // Start video-to-canvas render loop
+    this.startRender();
 
     // Check for saved calibration
     const saved = localStorage.getItem(this.STORAGE_KEY);
@@ -95,7 +91,6 @@ const CalibrationModule = {
         const corners = JSON.parse(saved);
         if (corners.length === 4) {
           this.corners = corners;
-          this.draw();
           this.showConfirm();
           document.getElementById('calibration-instruction').textContent = 'Används sparad kalibrering. Bekräfta eller gör om.';
           return;
@@ -105,10 +100,23 @@ const CalibrationModule = {
     this.reset();
   },
 
+  startRender() {
+    const video = document.getElementById('camera-video');
+    const draw = () => {
+      if (App.screen !== 'calibration') return; // stop when leaving
+      this.rafId = requestAnimationFrame(draw);
+      this.draw(video);
+    };
+    this.rafId = requestAnimationFrame(draw);
+  },
+
+  stop() {
+    if (this.rafId) { cancelAnimationFrame(this.rafId); this.rafId = null; }
+  },
+
   resize() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
-    this.draw();
   },
 
   reset() {
@@ -118,7 +126,6 @@ const CalibrationModule = {
       'Tryck på planens 4 hörn i ordning:\nvänster bak → höger bak → höger fram → vänster fram';
     document.getElementById('calibration-confirm-row').style.display = 'none';
     document.getElementById('calibration-dots').style.display = 'flex';
-    this.draw();
   },
 
   handleTap(e) {
@@ -148,11 +155,25 @@ const CalibrationModule = {
     document.getElementById('calibration-instruction').textContent = 'Ser det bra ut?';
   },
 
-  draw() {
+  draw(video) {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
     ctx.clearRect(0, 0, w, h);
+
+    // Draw camera frame as background
+    if (video && video.readyState >= 2) {
+      // Cover-fit: scale video to fill canvas maintaining aspect ratio
+      const vw = video.videoWidth || w;
+      const vh = video.videoHeight || h;
+      const scale = Math.max(w / vw, h / vh);
+      const sw = vw * scale;
+      const sh = vh * scale;
+      ctx.drawImage(video, (w - sw) / 2, (h - sh) / 2, sw, sh);
+    } else {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, w, h);
+    }
 
     if (this.corners.length === 0) return;
 
@@ -221,6 +242,7 @@ function redoCalibration() {
 }
 
 function confirmCalibration() {
+  CalibrationModule.stop();
   const corners = CalibrationModule.corners;
   localStorage.setItem(CalibrationModule.STORAGE_KEY, JSON.stringify(corners));
   CourtModule.setCorners(corners);
@@ -845,3 +867,10 @@ function resumeMatch(overlay) {
 
 // Prevent double-tap zoom on iOS
 document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+
+// Show "Add to Home Screen" hint if not already in standalone mode
+const isStandalone = window.navigator.standalone === true
+  || window.matchMedia('(display-mode: standalone)').matches;
+if (!isStandalone) {
+  document.getElementById('homescreen-banner').style.display = 'block';
+}

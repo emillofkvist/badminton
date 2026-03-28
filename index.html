@@ -2,8 +2,16 @@
 <html lang="sv">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Badminton</title>
+  <link rel="manifest" href="manifest.json">
+  <!-- iOS standalone (fullscreen) mode -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Badminton">
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- Theme color hides browser chrome on Android -->
+  <meta name="theme-color" content="#0a0a0a">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -443,6 +451,9 @@
 
   <!-- ── SETUP ── -->
   <div id="screen-setup" class="screen active">
+    <div id="homescreen-banner" style="display:none;width:100%;max-width:320px;background:#1a1a1a;border-radius:10px;padding:10px 14px;font-size:12px;color:#aaa;text-align:center;margin-bottom:4px;">
+      📲 Lägg till på hemskärmen för helskärmsläge (Safari → Dela → Lägg till på hemskärmen)
+    </div>
     <div class="setup-title">🏸 Badminton</div>
     <p class="setup-subtitle">Montera telefonen så kameran filmar hela planen</p>
 
