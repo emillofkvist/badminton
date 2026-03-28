@@ -127,6 +127,7 @@
       width: 100%;
       height: 100%;
       cursor: crosshair;
+      z-index: 1;
     }
 
     #calibration-ui {
@@ -141,6 +142,7 @@
       align-items: center;
       gap: 12px;
       pointer-events: none;
+      z-index: 2;
     }
 
     #calibration-instruction {
@@ -197,22 +199,13 @@
       pointer-events: all;
     }
 
-    /* Hidden video for camera feed */
+    /* Hidden video for camera feed — visibility controlled via JS */
     #camera-video {
       position: fixed;
       width: 1px;
       height: 1px;
       opacity: 0;
       pointer-events: none;
-    }
-    /* Calibration uses the video visibly */
-    #screen-calibration.active #camera-video {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 1;
     }
 
     /* ── MATCH SCREEN ── */

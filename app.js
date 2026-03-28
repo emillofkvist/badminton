@@ -17,6 +17,14 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + id).classList.add('active');
   App.screen = id;
+
+  // Show video only during calibration (it's not inside the screen div, so use JS)
+  const video = document.getElementById('camera-video');
+  if (id === 'calibration') {
+    video.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:1;z-index:0;pointer-events:none;';
+  } else {
+    video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;';
+  }
 }
 
 // ============================================================
