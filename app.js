@@ -50,6 +50,11 @@ async function startCamera() {
     const video = document.getElementById('camera-video');
     video.srcObject = stream;
     await video.play();
+    // Wait for first frame to be available (important on iOS)
+    await new Promise(resolve => {
+      if (video.readyState >= 2) { resolve(); return; }
+      video.addEventListener('canplay', resolve, { once: true });
+    });
     showScreen('calibration');
     CalibrationModule.init();
   } catch (err) {

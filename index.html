@@ -207,12 +207,14 @@
       pointer-events: all;
     }
 
-    /* Hidden video for camera feed — visibility controlled via JS */
+    /* Video must have real dimensions for iOS to decode frames.
+       Keep it off-screen so it's never visually shown. */
     #camera-video {
       position: fixed;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
+      left: -10000px;
+      top: 0;
+      width: 640px;
+      height: 360px;
       pointer-events: none;
     }
 
